@@ -129,7 +129,7 @@ async def process_images_nhentai(browser, semaphore, hentai_name, imgs_list):
                             max_attempts = 3
                             for attempt in range(1, max_attempts + 1):
                                 try:
-                                    await asyncio.sleep(1) # Let's be kind
+                                    await asyncio.sleep(2) # Let's be kind
                                     print(f"[bold yellow]Downloading IMG:[/bold yellow] {img_url} (Attempt {attempt}/{max_attempts})", ":hourglass:")
                                     async with aiohttp.ClientSession() as session:
 

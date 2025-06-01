@@ -34,6 +34,24 @@ Depending on your operating system, you might be able to install them using your
 
 Make sure you can run the `rar` or `unrar` command in your terminal after installation!
 
+### 🕸️ Proxy Configuration (Optional)
+
+If you want to use a proxy, this script supports using one via environment variables loaded from a `.env` file! 🤫
+
+1.  **Rename `.env.example` to `.env`**: Find the file named `.env.example` in the project root and rename it to just `.env`.
+2.  **Set Proxy Variables**: Open the new `.env` file and add or modify the following lines with your proxy details:
+
+    ```dotenv
+    use_proxy=enabled
+    data_impulse_host='gw.dataimpulse.com:823'
+    data_impulse_user=your_proxy_username
+    data_impulse_passwd=your_proxy_password
+    ```
+    Replace `your_proxy_host`, `your_proxy_username`, and `your_proxy_password` with your actual proxy credentials.
+3.  **Enable Proxy**: Make sure `use_proxy` is set to `enabled` in the `.env` file to activate the proxy.
+
+Now your script will use the specified proxy when downloading! 🌐
+
 ## How to use? 🎀
 
 (✨ Add instructions on how to run your script here! Like `python main.py` and what inputs it expects ✨)
