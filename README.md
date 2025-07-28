@@ -34,7 +34,7 @@ Depending on your operating system, you might be able to install them using your
 
 Make sure you can run the `rar` or `unrar` command in your terminal after installation!
 
-### 🕸️ Proxy Configuration (Optional)
+### 🕸️ Proxy Configuration (Must for nhentai)
 
 If you want to use a proxy, this script supports using one via environment variables loaded from a `.env` file! 🤫
 
