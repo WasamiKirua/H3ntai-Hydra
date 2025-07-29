@@ -65,7 +65,6 @@ def make_cbr_cbz_mangaforfree(hentai_name):
     shutil.rmtree(dst_dir)
     print(f"[bold green]Tmp folder removed:[/bold green] {archive_path}", ":ok:")
     
-
 def make_cbr_cbz_nhentai(hentai_name):
     print(":compression:", ":compression:", "[bold magenta]CBR & CBZ[/bold magenta]!", ":compression:", ":compression:")
     print('\n')
@@ -109,67 +108,115 @@ def make_cbr_cbz_nhentai(hentai_name):
     except Exception as e:
         print(f"[bold red]Error creating zip file: {e}[/bold red]")
 
-async def process_images_nhentai(browser, semaphore, hentai_name, imgs_list):
+async def process_images_nhentai(browser, semaphore, hentai_name, urls_list):
     async with semaphore:
         page = None
         try:
             page = await browser.new_page()
-            for url in imgs_list:
-                print(url)
-                await page.goto(url)
-
-                img_locators = await page.locator('a img').all() # Increased timeout and simplified locator
+            
+            for url in urls_list:
+                print(f"[bold white]Visiting page:[/bold white] {url}")
                 
-                if img_locators:
-                    # Loop through all img
-                    for img_locator in img_locators:
+                # Retry mechanism for page navigation and image container detection
+                max_page_attempts = 3
+                img_locator = None
+                page_loaded = False
+                
+                for page_attempt in range(1, max_page_attempts + 1):
+                    try:
+                        print(f"[bold cyan]Loading page (Attempt {page_attempt}/{max_page_attempts})...[/bold cyan]")
+                        # Navigate to page with timeout
+                        await page.goto(url, timeout=60000)  # Increased timeout to 60 seconds
+                        page_loaded = True
+                        print(f"[bold green]Page loaded successfully![/bold green]")
+                        
+                        print(f"[bold cyan]Waiting for image container...[/bold cyan]")
+                        # Wait for the image container to load
+                        await page.wait_for_selector('#image-container img', timeout=30000)
+                        
+                        # Find the img element within the image-container section
+                        img_locator = page.locator('#image-container img').first
+                        print(f"[bold green]Image container found successfully![/bold green]")
+                        break  # Exit retry loop on success
+                        
+                    except Exception as e:
+                        print(f"[bold yellow]Error on attempt {page_attempt}/{max_page_attempts}:[/bold yellow] {e}")
+                        
+                        if page_attempt < max_page_attempts:
+                            print(f"[bold yellow]Retrying in 5 seconds...[/bold yellow]")
+                            await asyncio.sleep(5)
+                        else:
+                            print(f"[bold red]Failed to load page and find image container after {max_page_attempts} attempts for {url}[/bold red]")
+                            break
+                
+                # Continue with image processing only if both page loaded and img_locator was found
+                if page_loaded and img_locator:
+                    try:
                         img_url = await img_locator.get_attribute('src')
-                        if 'nhentai.net' in img_url:
-                            print(f"Processing: {img_url}")
+                        
+                        if img_url and 'nhentai.net' in img_url:
+                            print(f"[bold cyan]Found image:[/bold cyan] {img_url}")
+                            
+                            # Download logic
                             max_attempts = 3
                             for attempt in range(1, max_attempts + 1):
                                 try:
-                                    await asyncio.sleep(2) # Let's be kind
+                                    await asyncio.sleep(2)  # Let's be kind
                                     print(f"[bold yellow]Downloading IMG:[/bold yellow] {img_url} (Attempt {attempt}/{max_attempts})", ":hourglass:")
+                                    
                                     async with aiohttp.ClientSession() as session:
-
                                         async with session.get(img_url) as response:
                                             if response.status == 200:
                                                 img_data = await response.read()
+                                                
                                                 # Extract filename from URL
                                                 filename = img_url.split('/')[-1]
-                                                # Ensure the filename has a proper image extension if needed, or handle cases without extensions
-                                                if '.' not in filename: # Basic check, might need more robust handling
-                                                    # Attempt to get content type and determine extension
+                                                
+                                                # Ensure the filename has a proper image extension if needed
+                                                if '.' not in filename:
                                                     content_type = response.headers.get('Content-Type')
                                                     if content_type and 'image' in content_type:
-                                                         # Simple mapping, could be extended
-                                                        extensions = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp'}
+                                                        extensions = {
+                                                            'image/jpeg': '.jpg', 
+                                                            'image/png': '.png', 
+                                                            'image/gif': '.gif', 
+                                                            'image/webp': '.webp'
+                                                        }
                                                         ext = extensions.get(content_type)
                                                         if ext:
                                                             filename += ext
                                                     else:
-                                                         # Fallback if content type is not helpful, or handle as error
-                                                        filename += '.bin' # Or skip/log error
+                                                        filename += '.bin'
+                                                
                                                 img_path = os.path.join(f'data/{hentai_name}/images', filename)
                                                 with open(img_path, 'wb') as f:
                                                     f.write(img_data)
                                                 print(f"[bold green]IMG saved:[/bold green] {img_path}", ":ok:")
-                                                break # Exit retry loop on success
+                                                break  # Exit retry loop on success
                                             else:
-                                                print(f"[bold yellow]Download failed with status code {response.status}:[/bold yellow] {url}")
+                                                print(f"[bold yellow]Download failed with status code {response.status}:[/bold yellow] {img_url}")
+                                
                                 except Exception as e:
-                                    print(f"[bold red]Error downloading {url}:[/bold red] {e}")
+                                    print(f"[bold red]Error downloading {img_url}:[/bold red] {e}")
+                                
                                 if attempt < max_attempts:
                                     print(f"[bold yellow]Retrying in 5 seconds...[/bold yellow]", ":hourglass:")
-                                    await asyncio.sleep(5) # Wait before retrying
+                                    await asyncio.sleep(5)  # Wait before retrying
                                 else:
-                                    print(f"[bold red]Failed downloading {url} after {max_attempts} attempts.[/bold red]", ":ko:")
-                            
+                                    print(f"[bold red]Failed downloading {img_url} after {max_attempts} attempts.[/bold red]", ":ko:")
+                        else:
+                            print(f"[bold red]No valid image URL found or URL doesn't contain 'nhentai.net':[/bold red] {img_url}")
+                    
+                    except Exception as e:
+                        print(f"[bold red]Error extracting image from {url}:[/bold red] {e}")
                 else:
-                    print(f"[bold red]Could not find any images with locator 'a img' on {url}[/bold red]")
+                    if not page_loaded:
+                        print(f"[bold red]Skipping {url} - could not load page after retries[/bold red]")
+                    else:
+                        print(f"[bold red]Skipping {url} - could not find image container after retries[/bold red]")
+                    
         except Exception as e:
-            print(f"Error processing {url}: {e}") # Added url to error message
+            print(f"[bold red]Error processing URLs:[/bold red] {e}")
         finally:
             if page:
                 await page.close()
@@ -236,7 +283,7 @@ async def process_images_mangaforfree(browser, semaphore, hentai_name, url, chap
                 await page.close()
                 make_cbr_cbz_mangaforfree(hentai_name)
 
-async def hentai_net(url, num_page, hentai_name):
+async def hentai_net(url, page_elements, hentai_name):
     async with async_playwright() as p:
         if os.getenv('use_proxy') == 'enabled':
             print("[bold green](Images URLs) Proxy Enabled![/bold green]", ":spider_web:")
@@ -246,12 +293,12 @@ async def hentai_net(url, num_page, hentai_name):
                     'server': f'{proxy_host}',
                     'username': f'{proxy_user}',
                     'password': f'{proxy_passwd}'
-                }
+                }, headless = False
             )
         else:
             print(":no_entry:", "[bold red](Images URLs) Proxy Disabled![/bold red]", ":spider_web:")
             print('\n')
-            browser = await p.chromium.launch()
+            browser = await p.chromium.launch(headless=False)
 
         semaphore = asyncio.Semaphore(3) # Limit to 1 concurrent tasks
         tasks = []
@@ -262,12 +309,17 @@ async def hentai_net(url, num_page, hentai_name):
         os.makedirs(f'{dest_fold}/{hentai_name}', exist_ok=True)
         os.makedirs(f'{dest_fold}/{hentai_name}/images', exist_ok=True)
 
-        imgs_list = []
-        
-        for page in range(1, int(num_page)):
-            imgs_list.append(f'{url}{page}')
+        tmp_list = []
+        urls_list = []
 
-        tasks.append(asyncio.create_task(process_images_nhentai(browser, semaphore, hentai_name, imgs_list)))
+        for _ in page_elements:
+            if len(_.split('/')) == 5:
+                tmp_list.append(_)
+
+        for _ in tmp_list:
+            urls_list.append(f'https://nhentai.net{_}')
+
+        tasks.append(asyncio.create_task(process_images_nhentai(browser, semaphore, hentai_name, urls_list)))
 
         await asyncio.gather(*tasks)
         await browser.close()
