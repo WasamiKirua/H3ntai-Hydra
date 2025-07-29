@@ -35,12 +35,12 @@ async def main():
                     'server': f'{proxy_host}',
                     'username': f'{proxy_user}',
                     'password': f'{proxy_passwd}'
-                }
+                }, headless=False
             )
         else:
             print(":no_entry:", "[bold red](Volumes URLs) Proxy Disabled![/bold red]", ":spider_web:")
             print('\n')
-            browser = await p.chromium.launch()
+            browser = await p.chromium.launch(headless=False)
 
         page = await browser.new_page()
         
@@ -48,6 +48,8 @@ async def main():
 
         # Here logic for nhentai.net
         if 'nhentai.net' in manga_url:
+            page_elements = []
+            
             try:
                 # Locate the element containing the pretty title
                 pretty_title_element = page.locator("span.pretty").first
@@ -57,21 +59,33 @@ async def main():
                 else:
                     hentai_name = "Unknown Title"
                     print("[bold red]Could not find pretty title element. Setting to Unknown Title.[/bold red]")
-            except Exception as e:
-                hentai_name = "Unknown Title"
-                print(f"[bold red]An error occurred while extracting pretty title: {e}. Setting to Unknown Title.[/bold red]")
 
-            # Locate the element containing the page count
-            try:
-                pages_element = page.locator("div.tag-container:has-text('Pages:') span.tags span.name").first
-                if pages_element:
-                    page_count = await pages_element.text_content()
-                    print(f"[bold white]Pages found:[/bold white] [magenta]{page_count}[/magenta]")
-                    print('\n')
-                else:
-                    print("[bold red]Could not find pages element.[/bold red]")
+                # Get anchor tags that contain img elements with class "lazyload"
+                print("Locating anchor tags containing img elements with class 'lazyload'...")
+                
+                # Wait for the images to load
+                await page.wait_for_selector('img.lazyload', timeout=10000)
+                
+                # Get all anchor tags that contain img elements with class "lazyload"
+                anchor_locators = await page.locator('a:has(img.lazyload)').all()
+                
+                print(f"Found {len(anchor_locators)} anchor elements containing lazyload images")
+                
+                # Extract href values from each anchor element
+                for anchor_locator in anchor_locators:
+                    href_value = await anchor_locator.get_attribute('href')
+                    if href_value:
+                        page_elements.append(href_value)
+                
+                #NOTE: Troubleshoot
+                # # Print the list content for troubleshooting
+                # print(f"[bold white]Page Elements List ({len(page_elements)} items):[/bold white]")
+                # for i, src in enumerate(page_elements, 1):
+                #     print(f"  {i}: [cyan]{src}[/cyan]")
+                # print('\n')
+                
             except Exception as e:
-                print(f"[bold red]An error occurred while extracting page count: {e}[/bold red]")
+                print(f"[bold red]An error occurred while extracting img elements: {e}[/bold red]")
 
         # Here logic for Mangaforfree
         else:
@@ -129,7 +143,7 @@ async def main():
 
     # Call the async function
     if 'nhentai.net' in manga_url:
-        await hentai_net(manga_url, page_count, hentai_name)
+        await hentai_net(manga_url, page_elements, hentai_name)
     else:
         await mangaforfree(chapters_list, hentai_name)
 
