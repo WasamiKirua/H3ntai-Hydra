@@ -4,7 +4,7 @@ from rich import print
 from rich.console import Console
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
-from utils import hentai_net, mangaforfree, make_cbr_cbz_mangaforfree
+from utils import hentai_net, mangaforfree
 
 async def main():
     load_dotenv()
